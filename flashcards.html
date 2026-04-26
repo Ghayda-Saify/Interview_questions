@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Flashcards</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; padding: 1.5rem; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 1.25rem; }
+
+  .cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .cat-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid #ccc; background: #fff; cursor: pointer; transition: all 0.15s; }
+  .cat-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
+  .progress-bar { flex: 1; height: 5px; background: #e0e0e0; border-radius: 5px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #1D9E75; border-radius: 5px; transition: width 0.3s; }
+  .prog-text { font-size: 12px; color: #888; white-space: nowrap; }
+
+  .stats { display: flex; gap: 16px; margin-bottom: 1rem; }
+  .stat { font-size: 13px; }
+  .stat span { font-weight: 600; }
+  .green { color: #1D9E75; }
+  .red { color: #E24B4A; }
+
+  .card-area { perspective: 1000px; width: 100%; margin-bottom: 1rem; }
+  .card { width: 100%; min-height: 230px; position: relative; transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(.4,0,.2,1); cursor: pointer; }
+  .card.flipped { transform: rotateY(180deg); }
+  .face {
+    position: absolute; width: 100%; min-height: 230px;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    border-radius: 14px; border: 1px solid #e0e0e0;
+    padding: 1.5rem; display: flex; flex-direction: column;
+    justify-content: center; background: #fff;
+  }
+  .back { transform: rotateY(180deg); background: #fafaf8; }
+  .tag { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+  .q-text { font-size: 18px; font-weight: 500; line-height: 1.5; }
+  .a-text { font-size: 14px; line-height: 1.75; }
+  .hint { font-size: 12px; color: #aaa; margin-top: 1rem; }
+  .code-block {
+    background: #1e1e1e; color: #d4d4d4;
+    border-radius: 8px; padding: 10px 14px;
+    font-family: monospace; font-size: 12px;
+    margin-top: 12px; white-space: pre; overflow-x: auto;
+  }
+
+  .controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .ctrl-btn { padding: 7px 18px; font-size: 13px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer; }
+  .ctrl-btn:hover { background: #f0f0f0; }
+  .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .flip-btn { padding: 7px 22px; font-size: 13px; border-radius: 8px; border: 1px solid #ccc; background: #f0f0f0; cursor: pointer; font-weight: 500; }
+  .card-num { font-size: 12px; color: #888; margin-left: 8px; }
+
+  .result-row { display: flex; gap: 8px; }
+  .res-btn { flex: 1; padding: 9px; font-size: 13px; border-radius: 8px; border: 1px solid; cursor: pointer; font-weight: 500; }
+  .res-got { background: #eafaf0; color: #166534; border-color: #86efac; }
+  .res-miss { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+</style>
+</head>
+<body>
+
+<h1>Interview Flashcards</h1>
+
+<div class="cats" id="cats"></div>
+
+<div class="progress-row">
+  <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="prog-text" id="prog-text">0 / 0</div>
+</div>
+
+<div class="stats">
+  <div class="stat green">✓ Got it: <span id="got-count">0</span></div>
+  <div class="stat red">✗ Missed: <span id="miss-count">0</span></div>
+</div>
+
+<div class="card-area">
+  <div class="card" id="card" onclick="flipCard()">
+    <div class="face front">
+      <div class="tag" id="f-tag"></div>
+      <div class="q-text" id="f-q"></div>
+      <div class="hint">tap to reveal answer</div>
+    </div>
+    <div class="face back">
+      <div class="tag" id="b-tag"></div>
+      <div class="a-text" id="b-a"></div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" id="prev-btn" onclick="prev()">← prev</button>
+  <div style="display:flex;align-items:center;">
+    <button class="flip-btn" onclick="flipCard()">flip</button>
+    <span class="card-num" id="card-num"></span>
+  </div>
+  <button class="ctrl-btn" id="next-btn" onclick="next()">next →</button>
+</div>
+
+<div class="result-row" id="result-row" style="display:none;">
+  <button class="res-btn res-got" onclick="markGot()">✓ got it</button>
+  <button class="res-btn res-miss" onclick="markMiss()">✗ missed it</button>
+</div>
+
+<script>
+const ALL = [
+  {cat:"OOP",q:"What are the 4 pillars of OOP?",a:"Abstraction, Encapsulation, Inheritance, Polymorphism — remember A-E-I-P.",code:""},
+  {cat:"OOP",q:"What is Encapsulation?",a:"Bundling data and methods together and restricting direct access using access modifiers. Protects data integrity — like a bank account's private balance field that can only be changed via deposit() or withdraw().",code:""},
+  {cat:"OOP",q:"Compile-time vs runtime polymorphism?",a:"Compile-time = method overloading (same name, different params, decided at compile time). Runtime = method overriding (child overrides parent method, decided at runtime via dynamic dispatch).",code:""},
+  {cat:"OOP",q:"Abstract class vs Interface?",a:"Abstract class: can have concrete + abstract methods, single inheritance only. Interface: pure contract, supports multiple inheritance. Rule: abstract class for IS-A with shared code, interface for CAN-DO capability.",code:""},
+  {cat:"OOP",q:"Can you instantiate an abstract class?",a:"No — zero instances. It can only be subclassed. The constructor exists but is only called via super() from a child.",code:""},
+  {cat:"OOP",q:"What is the Diamond Problem?",a:"When a class inherits from two classes that both share a base — ambiguity over which method to use. Java solves this by disallowing multiple class inheritance and using interfaces instead.",code:""},
+  {cat:"OOP",q:"What is a virtual function in C++?",a:"Declared with 'virtual' keyword. Can be overridden in derived classes. Enables runtime polymorphism — the correct method is resolved at runtime based on the actual object type.",code:"virtual void sound() = 0; // pure virtual"},
+  {cat:"OOP",q:"3 types of constructors?",a:"Default (no params), Parameterized (with params to set values on creation), Copy (creates new object as copy of existing). Rules: same name as class, no return type.",code:""},
+  {cat:"OOP",q:"Overloading vs Overriding?",a:"Overloading: same name, different params, same class, static binding (compile time). Overriding: same name + params + return type, child class overrides parent, dynamic binding (runtime).",code:""},
+  {cat:"OOP",q:"What does 'this' pointer do?",a:"Points to the current object of the class. Used to resolve naming conflicts between instance variables and parameters when they share the same name.",code:""},
+  {cat:"Big O",q:"Rank these complexities best to worst",a:"O(1) → O(log n) → O(n) → O(n log n) → O(n²) → O(2ⁿ) → O(n!). For n=1000: O(1)=1 op, O(log n)=10 ops, O(n)=1K, O(n²)=1M, O(2ⁿ)=more than atoms in universe.",code:""},
+  {cat:"Big O",q:"What is the time complexity of binary search?",a:"O(log n). Halves the search space each step. With 1 million elements — only ~20 steps. REQUIRES sorted array.",code:""},
+  {cat:"Big O",q:"Nested loop complexity?",a:"Usually O(n²). If outer is n and inner is n — n×n = n². If inner is always constant — still O(n). Always count how many times the innermost operation runs.",code:""},
+  {cat:"Arrays",q:"Why is array insertion in the middle O(n)?",a:"Elements after the insertion point must all shift right by one position. Deletion shifts left. Only inserting/deleting at the END is O(1) — no shifting needed.",code:""},
+  {cat:"Arrays",q:"Explain Kadane's Algorithm",a:"Finds maximum sum subarray in O(n). Key insight: if running sum goes NEGATIVE, reset to 0 — a negative prefix only hurts future sums. Track max seen so far.",code:"curr=0, maxS=-INF\nfor num in arr:\n  curr += num\n  maxS = max(maxS, curr)\n  if curr < 0: curr = 0"},
+  {cat:"Arrays",q:"What is prefix sum and why is it useful?",a:"Pre-calculate cumulative sums from index 0. Any range sum [l,r] = prefix[r] - prefix[l-1]. Build once O(n), answer thousands of range queries in O(1) instead of O(n) each.",code:"prefix[i] = prefix[i-1] + arr[i]\nrangeSum(l,r) = prefix[r] - prefix[l-1]"},
+  {cat:"Arrays",q:"Sliding window — fixed vs variable?",a:"Fixed: maintain exact size k (remove left + add right each step). Variable: expand right when condition holds, shrink left when it breaks. Both O(n) — each element enters and exits once.",code:""},
+  {cat:"Strings",q:"How to check anagram in O(n)?",a:"Frequency count array of size 26. Count up for s1, count down for s2. If all zeros → anagram. Trick: c - 'a' maps char to array index (0-25).",code:"count[c-'a']++  // s1\ncount[c-'a']--  // s2\nall zeros = anagram ✓"},
+  {cat:"Strings",q:"KMP vs naive string search?",a:"Naive is O(n×m) — restarts from scratch on mismatch. KMP is O(n+m) — builds a prefix table (LPS array) that tells where to resume after a mismatch without re-checking.",code:""},
+  {cat:"Strings",q:"Palindrome check — optimal approach?",a:"Two pointers: left=0, right=end. Compare and move inward until they meet. O(n) time, O(1) space. Better than reversing the string which needs O(n) extra space.",code:"while left < right:\n  if s[left]!=s[right]: return false\n  left++; right--\nreturn true"},
+  {cat:"Linked List",q:"How to reverse a linked list?",a:"Three pointers: prev=null, curr=head. Loop: save next, flip curr's pointer to prev, advance both. When curr is null, prev is the new head. O(n) time, O(1) space.",code:"prev=null, curr=head\nwhile curr:\n  next=curr.next\n  curr.next=prev\n  prev=curr; curr=next\nreturn prev"},
+  {cat:"Linked List",q:"Floyd's cycle detection — how?",a:"Slow pointer moves 1 step, fast moves 2. If cycle exists they WILL meet (like a faster runner lapping a slower one on a circular track). O(n) time, O(1) space — better than storing visited nodes.",code:""},
+  {cat:"Linked List",q:"Find middle of linked list?",a:"Same slow/fast trick. When fast reaches null (end), slow is at the middle. O(n) time, O(1) space. Works for both odd and even length lists.",code:""},
+  {cat:"Linked List",q:"Array vs Linked List — key trade-offs?",a:"Array: O(1) random access, compact memory, fixed size. Linked List: O(1) insert at head, dynamic size, no shifting. Use array for frequent indexed access. Use linked list for frequent front insertions.",code:""},
+  {cat:"Stacks",q:"Name 3 real uses of a Stack",a:"1. Function call stack (tracking return addresses). 2. Undo/redo operations. 3. Valid parentheses checking. 4. Browser back button. 5. Expression evaluation. All follow LIFO.",code:""},
+  {cat:"Stacks",q:"Valid parentheses algorithm?",a:"Push opening brackets. On closing bracket: if stack empty or top doesn't match → invalid. At end, stack must be empty. O(n) time, O(n) space.",code:"for c in s:\n  if c in '([{': push(c)\n  else:\n    if empty or no match: false\nreturn stack.empty()"},
+  {cat:"Stacks",q:"What is a Min Stack?",a:"A stack that returns minimum in O(1). Use an auxiliary stack that tracks minimums. When pushing, also update min stack if new value ≤ current min. When popping, pop min stack too if tops match.",code:""},
+  {cat:"Queues",q:"Stack vs Queue difference?",a:"Stack = LIFO (last in, first out) — push/pop same end. Queue = FIFO (first in, first out) — enqueue at rear, dequeue from front. Stack = plates. Queue = people in line.",code:""},
+  {cat:"Queues",q:"What is a Priority Queue?",a:"Elements served by PRIORITY not insertion order. Implemented using a heap. Min-heap: smallest at top. Max-heap: largest at top. Push/pop O(log n), peek O(1). Used in Dijkstra, top-K, scheduling.",code:""},
+  {cat:"Queues",q:"What is a Deque?",a:"Double-ended queue — insertion and deletion from BOTH front and rear ends. Used for: palindrome checking, sliding window max/min, browser history. All operations O(1).",code:""},
+  {cat:"Trees",q:"What traversal gives sorted output from BST?",a:"Inorder (Left → Root → Right). This is the defining property of BST — inorder always yields ascending sorted order. Used to verify if a tree is a valid BST.",code:""},
+  {cat:"Trees",q:"BST time complexities?",a:"O(log n) average for search/insert/delete when balanced. O(n) worst case when skewed (like a linked list — insert 1,2,3,4,5 in order). AVL/Red-Black trees guarantee O(log n) always.",code:""},
+  {cat:"Trees",q:"Height vs depth of a tree node?",a:"Depth = edges from ROOT down to the node (root has depth 0). Height = edges from the node UP to the FURTHEST LEAF. Tree height = root's height.",code:""},
+  {cat:"Trees",q:"4 traversals and when to use each?",a:"Inorder (L-Root-R): sorted BST output. Preorder (Root-L-R): copy a tree. Postorder (L-R-Root): delete a tree. Level-order (BFS): shortest path in tree, level processing.",code:""},
+  {cat:"Trees",q:"What is the LCA of two nodes?",a:"Lowest Common Ancestor = deepest node that is an ancestor of BOTH given nodes. DFS approach: if current node equals either target OR if both subtrees return non-null — current node is LCA.",code:""},
+  {cat:"Hashing",q:"What is a hash collision?",a:"Two different keys produce the same hash index. Handled by: (1) Chaining — each bucket stores a linked list. (2) Open Addressing — find next empty slot via linear probing, quadratic probing, or double hashing.",code:""},
+  {cat:"Hashing",q:"HashSet vs HashMap?",a:"HashSet: stores only KEYS, no duplicates — use to check existence O(1). HashMap: stores KEY+VALUE pairs — use to count frequencies, map associations. Both have O(1) average operations.",code:""},
+  {cat:"Hashing",q:"Two Sum in O(n)?",a:"HashMap approach. For each element: check if complement (target - current) exists in map. If yes → pair found! If no → store {current: index} in map. One pass, O(n) time, O(n) space.",code:"map = {}\nfor i, num in nums:\n  comp = target - num\n  if comp in map: return [map[comp],i]\n  map[num] = i"},
+  {cat:"Graphs",q:"BFS vs DFS — when to use which?",a:"BFS: shortest path unweighted, level-order, multi-source spreading. Uses QUEUE. DFS: cycle detection, topological sort, connected components, all paths. Uses STACK or recursion.",code:""},
+  {cat:"Graphs",q:"Dijkstra vs Bellman-Ford?",a:"Dijkstra: weighted, NO negative weights, O((V+E)log V), uses min-heap. Bellman-Ford: handles NEGATIVE weights, detects negative cycles, O(V×E) — slower but more general.",code:""},
+  {cat:"Graphs",q:"What is Topological Sort?",a:"Linear ordering of DAG nodes where u→v means u appears before v. Used for: task scheduling, build order, course prerequisites. Kahn's (BFS + in-degree) or DFS-based. Only works on DAGs.",code:""},
+  {cat:"Graphs",q:"What is DSU (Union-Find)?",a:"Manages disjoint groups efficiently. Find (get root, with path compression) and Union (merge groups, by rank). Nearly O(1) per operation. Used in Kruskal's MST and cycle detection.",code:"find(x): if parent[x]!=x: parent[x]=find(parent[x])\n         return parent[x]"},
+  {cat:"Graphs",q:"What is a Minimum Spanning Tree?",a:"Tree connecting all nodes with minimum total edge weight, no cycles. Kruskal: sort edges, add smallest non-cycle edge (uses DSU). Prim: grow from one node, always add cheapest adjacent edge.",code:""},
+  {cat:"Graphs",q:"How to detect cycle in directed graph?",a:"DFS with 3 colors: 0=unvisited, 1=in current path (gray), 2=done. If we visit a gray node → back edge → cycle! O(V+E) time.",code:""},
+  {cat:"Sorting",q:"Merge Sort vs Quick Sort?",a:"Merge Sort: STABLE, guaranteed O(n log n), O(n) extra space. Quick Sort: NOT stable, O(n log n) average but O(n²) worst case, O(log n) space. Use Merge when stability matters, Quick for general purpose.",code:""},
+  {cat:"Sorting",q:"Best sort for nearly sorted data?",a:"Insertion Sort — O(n) best case. It only shifts elements small distances. For fully random data: Merge Sort or Quick Sort. Selection Sort is always O(n²) — avoid.",code:""},
+  {cat:"Sorting",q:"What makes Quick Sort O(n²)?",a:"Bad pivot choice — when pivot is always the smallest or largest element (e.g., sorted array + last element as pivot). Fix: random pivot selection or median-of-three pivot.",code:""},
+  {cat:"Searching",q:"Binary search — what is required?",a:"Array MUST be sorted. Each step eliminates HALF the remaining search space. Use mid = low + (high-low)/2 NOT (low+high)/2 to avoid integer overflow.",code:"while lo <= hi:\n  mid = lo + (hi-lo)//2\n  if arr[mid]==target: return mid\n  elif arr[mid]<target: lo=mid+1\n  else: hi=mid-1"},
+  {cat:"Searching",q:"Binary search on answer — when?",a:"When you need the minimum/maximum VALUE satisfying a condition. Define the search space (min_possible to max_possible), binary search in that range, use is_valid(mid) to check. O(log(range) × check cost).",code:""},
+  {cat:"Bit Ops",q:"How to check even/odd with bits?",a:"n & 1. If result is 1 → odd. If 0 → even. Faster than modulo (%). Works because LSB (least significant bit) is 1 for all odd numbers, 0 for all even.",code:"n & 1 == 1 → odd\nn & 1 == 0 → even"},
+  {cat:"Bit Ops",q:"How to check power of 2?",a:"n > 0 && (n & (n-1)) == 0. Powers of 2 have exactly ONE set bit. n-1 flips all bits below that bit. So n & (n-1) removes the only set bit → 0.",code:"16 = 10000\n15 = 01111\n16 & 15 = 0 ✓ (power of 2)"},
+  {cat:"Bit Ops",q:"How to get bit at position i?",a:"(n >> i) & 1. Right shift moves bit i to position 0. Then AND with 1 zeroes all other bits, leaving only position 0. Result is 0 or 1.",code:"n=13=1101, i=2\n13>>2 = 0011\n0011 & 0001 = 1 ✓"},
+  {cat:"Bit Ops",q:"XOR swap — theory?",a:"Uses: a^a=0, a^0=a. Step 1: a=a^b (stores mix). Step 2: b=b^(a^b)=a (recovers original a). Step 3: a=(a^b)^a=b (recovers original b). Never use on same memory location!",code:"a^=b; b^=a; a^=b"},
+  {cat:"Heap",q:"K largest — which heap?",a:"MIN heap of size K. Smallest of the K largest sits at top. If new element > top: pop and push new. Counterintuitive but correct — the min heap acts as a filter. O(n log k).",code:""},
+  {cat:"Heap",q:"Median in stream — approach?",a:"Two heaps: max-heap (lower half) and min-heap (upper half). Keep sizes balanced (differ by ≤1). Median = top of max-heap (odd total) or average of both tops (even total). Insert O(log n), median O(1).",code:""},
+  {cat:"Trie",q:"Trie vs HashMap for strings?",a:"HashMap: O(m) exact lookup but can't do prefix ops efficiently. Trie: O(m) for all ops including PREFIX search, autocomplete, prefix count. Use Trie when prefix operations matter.",code:""},
+  {cat:"Recursion",q:"Two required parts of every recursive function?",a:"1. Base case — stops recursion, prevents stack overflow. 2. Recursive case — calls itself with STRICTLY SMALLER input, guaranteed to reach base case.",code:""},
+  {cat:"Recursion",q:"Memoization — what and why?",a:"Cache results of expensive function calls. Fibonacci without memo: O(2^n), recomputes same values millions of times. With memo: O(n) — each subproblem computed exactly once.",code:"memo = {}\ndef fib(n):\n  if n in memo: return memo[n]\n  memo[n] = fib(n-1)+fib(n-2)\n  return memo[n]"},
+  {cat:"Recursion",q:"What is backtracking?",a:"Try → Recurse → Undo. If a choice leads to dead end, remove it and try next option. Pattern: place → recurse → remove (backtrack). Used for N-Queens, Sudoku, subsets, permutations.",code:"place(choice)\nsolve(next)\nremove(choice)  ← backtrack"},
+  {cat:"Sliding Window",q:"When to use sliding window?",a:"Problems about CONTIGUOUS subarrays or substrings: max/min sum of k elements, longest substring with condition, count subarrays matching condition. Key: O(n) because each element enters and leaves at most once.",code:""},
+  {cat:"Sliding Window",q:"Longest substring without repeating — approach?",a:"Variable window with HashMap tracking last seen index. If character is in map AND its last index >= start → move start past it. Update max length each step. O(n) time.",code:"seen={}, start=0, maxLen=0\nfor end in range(len(s)):\n  if s[end] in seen and seen[s[end]]>=start:\n    start=seen[s[end]]+1\n  seen[s[end]]=end\n  maxLen=max(maxLen, end-start+1)"},
+];
+
+let filtered=[...ALL], idx=0, flipped=false, got=0, miss=0, marked=new Set(), activeCat='All';
+const catList=['All',...new Set(ALL.map(c=>c.cat))];
+
+function buildCats(){
+  document.getElementById('cats').innerHTML=catList.map(c=>
+    `<button class="cat-btn${c===activeCat?' active':''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+}
+function setCat(c){
+  activeCat=c; filtered=c==='All'?[...ALL]:ALL.filter(x=>x.cat===c);
+  idx=0;flipped=false;marked.clear();got=0;miss=0;
+  buildCats();render();
+}
+function render(){
+  if(!filtered.length)return;
+  document.getElementById('card').classList.toggle('flipped',flipped);
+  const d=filtered[idx];
+  document.getElementById('f-tag').textContent=d.cat;
+  document.getElementById('f-q').textContent=d.q;
+  document.getElementById('b-tag').textContent=d.cat+' — answer';
+  let aHtml=`<div>${d.a}</div>`;
+  if(d.code)aHtml+=`<div class="code-block">${d.code}</div>`;
+  document.getElementById('b-a').innerHTML=aHtml;
+  document.getElementById('card-num').textContent=`  ${idx+1} / ${filtered.length}`;
+  document.getElementById('prev-btn').disabled=idx===0;
+  document.getElementById('next-btn').disabled=idx===filtered.length-1;
+  document.getElementById('prog-fill').style.width=Math.round((idx/filtered.length)*100)+'%';
+  document.getElementById('prog-text').textContent=`${idx} / ${filtered.length}`;
+  document.getElementById('got-count').textContent=got;
+  document.getElementById('miss-count').textContent=miss;
+  document.getElementById('result-row').style.display=flipped?'flex':'none';
+}
+function flipCard(){flipped=!flipped;render();}
+function next(){if(idx<filtered.length-1){idx++;flipped=false;render();}}
+function prev(){if(idx>0){idx--;flipped=false;render();}}
+function markGot(){if(!marked.has(idx)){got++;marked.add(idx);}next();}
+function markMiss(){if(!marked.has(idx)){miss++;marked.add(idx);}next();}
+
+buildCats();render();
+</script>
+</body>
+</html>
